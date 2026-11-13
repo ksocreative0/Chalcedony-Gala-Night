@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#24160f">
+  <title>Chalcedony School Gala Night</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js"></script>
+  <script src="js/main.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="#home"><span class="brand-mark logo-frame"><img src="images/logo.jpeg" alt="Chalcedony School logo"></span><span>CHALCEDONY <small>SCHOOL</small></span></a>
+    <button class="menu-toggle" id="menuToggle" aria-label="Toggle navigation" aria-expanded="false"><span></span><span></span><span></span></button>
+    <nav class="nav-menu" id="navMenu">
+      <a href="#about">The Gala</a><a href="#rsvp">RSVP</a><a href="#awards">Vote</a><a href="#gallery">Our Staff</a><a href="#programme">Programme</a><a href="#venue">Venue</a>
+      <a class="nav-cta" href="#rsvp">Reserve your place</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero" id="home">
+      <div class="hero-overlay"></div>
+      <div class="hero-content">
+        <p class="eyebrow">CHALCEDONY SCHOOL PRESENTS</p>
+        <h1>Award / Gala <em>Night</em></h1>
+        <p class="hero-subtitle">Dress Code: <strong>Black Tie Event </strong></p>
+        <div class="hero-meta"><span>18 DECEMBER 2026</span><i></i><span>PATRON HOTEL</span></div>
+     
+        <div class="hero-actions"><a class="button button-gold" href="#rsvp">RSVP NOW</a><a class="button button-outline" href="#awards">VOTE FOR A STAFF</a></div>
+      </div>
+    </section>
+
+    <section class="section intro-section" id="about">
+      <div class="section-kicker"></div>
+      <div class="intro-grid">
+        <div><h2>15 Years of<br><em>God's Mercy</em></h2></div>
+
+      <div class="anniversary-message">
+        <p>The Staff Award and Gala Night is a grand celebration marking <strong>15 years of excellence, growth, impact and outstanding achievements. </strong>It is an opportunity to reflect on our journey, celebrate our successes and recognise both past and present staff members whose dedication, loyalty, hard work and years of service have contributed immensely to the growth and development of our institution. The evening will honour their invaluable contributions and celebrate the people behind our success. <br>
+A major highlight of the evening will be the <strong>official launch of our School Alumni Association</strong> creating a platform for former students to reconnect, strengthen bonds and contribute to the continued growth of their alma mater. As we celebrate this remarkable milestone, we look forward to an evening of glamour, entertainment, awards and heartfelt appreciation as we honour our legacy, celebrate our people and embrace the future.
+<br>
+<strong>15 Years of Excellence. A Legacy of Impact. A Future of Possibilities!</strong></p>
+      </div>
+      <div class="head-message">
+        <div class="head-photo" id="headPhoto"><img src="images/olowo.jpeg" alt="Mrs. Gbemisola Olowookere"></div>
+        <h3><em>Executive Director</em><br><span>Mrs. Gbemisola Olowookere</span></h3>
+      </div>
+    </section>
+
+    <section class="section rsvp-section" id="rsvp">
+      <div class="section-kicker"></div><h2>SAVE YOUR<br><em>PLACE.</em></h2>
+      <p class="section-lead">Kindly let us know if you'll be joining us.</p>
+      <form id="rsvpForm" class="form-card">
+        <label>Full name<input name="full_name" required maxlength="120" placeholder="Enter your full name"></label>
+        <label>Email address<input name="email" type="email" required maxlength="254" placeholder="you@example.com"></label>
+        <label>Will you be attending?<select name="attendance_decision" required><option value="">Select your response</option><option value="attending">Yes, I'll be there</option><option value="not_attending">Sorry, I can't make it</option><option value="undecided">I'm not sure yet</option></select></label>
+        <label class="check-label sponsor-check"><input id="sponsorToggle" name="is_sponsoring" type="checkbox" value="true"> I would like to sponsor an award category</label>
+        <div id="sponsorFields" class="sponsor-fields" hidden>
+          <label>Award category to sponsor<select id="sponsorCategory" name="sponsored_category_id"><option value="">Choose an award category</option></select></label>
+          <label>Item you would like to sponsor<input name="sponsored_item" maxlength="200" placeholder="e.g. Trophy, gift item, cash support"></label>
+          <label>Date you can provide the item<input name="sponsorship_delivery_date" type="date" max="2026-12-18" min="2026-11-11"></label>
+        </div>
+        <button class="button button-gold full" type="submit">SUBMIT RSVP</button>
+        <p class="form-note" id="rsvpNote">Your response will be recorded securely.</p>
+      </form>
+    </section>
+
+ <section class="section gallery-section" id="gallery">
+      <div class="section-kicker"></div><h2>Meet the <em>PEOPLE</em> you are voting for.</h2><p class="section-lead" style="height: 200px; background-image: linear-gradient(rgba(0,0,0,0.8), rgba(0,0,0,0.8)), url('images/logo.jpeg'); background-size: cover; background-position: center; display: flex; align-items: center; justify-content: center; color: white; text-align: center;">Every department has staff worthy of an award. Know their faces, vote fairly.</p>
+      <div id="galleryContainer"><p class="muted">Gallery</p></div>
+        <div class="hero-actions"><a class="button button-outline" href="#awards">VOTE FOR A STAFF</a></div>
+        </div>
+    </section>
+    
+    <section class="section awards-section" id="awards">
+      <div class="section-kicker"></div><h2>The Staff <em>Awards</em></h2><p class="section-lead">Choose one nominee in each category. VOTING ENDS <strong> Sunday 13th December, 2026</strong></p>
+      <div id="awardsContainer" class="awards-grid"><p class="muted">Award categories</p></div>
+      <p class="form-note" id="voteNote"></p>
+      <div id="publishedResults" class="published-results" hidden><h3>Celebrating our winners</h3><div id="resultsContainer"></div></div>
+    </section>
+
+
+    <section class="section programme-section" id="programme">
+      <div class="section-kicker"></div><h2>THE EVENING'S <em>HIGHLIGHT.</em></h2>
+      <div id="programmeList" class="timeline"><p class="muted">The event programme will be announced soon.</p></div>
+    </section>
+
+    <section class="venue-section" id="venue">
+      <div class="venue-copy"><div class="section-kicker"></div><h2>See you at<br><em>PATRON HOTEL.</em></h2><p id="venueAddress">Patron Hotel, Ajah, Lagos State</p><a class="button button-gold" id="directionsLink" href="https://www.google.com/maps/dir//Km+20+Lekki+-+Epe+Expy,+Eti-Osa,+Lekki+106104,+Lagos/data=!4m6!4m5!1m1!4e2!1m2!1m1!1s0x103bf97bdbb42b4b:0x7b86b3647028e882?entry=s&sa=X&ved=2ahUKEwiyn96E2_-XAxXYQ0EAHevfBW0QlDt6BAgVEAA&hl=en" target="_blank" rel="noopener">GET DIRECTIONS</a></div>
+      <div class="venue-art"><div class="venue-ring">18<br><small>DEC</small></div><span>2026 · CHALCEDONY SCHOOL</span></div>
+    </section>
+    <section class="countdown-section" aria-label="Countdown to Gala Night">
+      <div class="section-kicker">THE COUNTDOWN BEGINS</div>
+      <h2>Until the <em>Gala Night</em></h2>
+      <div class="countdown-grid" id="countdown" data-start="2026-11-11T00:00:00+01:00" data-event="2026-12-18T00:00:00+01:00">
+        <div><strong id="countDays">--</strong><span>Days</span></div><div><strong id="countHours">--</strong><span>Hours</span></div><div><strong id="countMinutes">--</strong><span>Minutes</span></div><div><strong id="countSeconds">--</strong><span>Seconds</span></div>
+      </div>
+    </section>
+  </main>
+  <footer class="site-footer">
+    <a class="footer-logo" href="#home"><img src="images/logo.jpeg" alt="Chalcedony School logo"></a>
+    <div class="footer-details">
+      <span><a href="https://www.instagram.com/chalcedonyschool?dlrf=MW5pdTY2NW80MHB6aQ==">Chalcedony School Instagram</a></span>
+      <span><a href="https://vm.tiktok.com/ZS9fCSEwdaPKw-R54r2/">Chalcedony School Tiktok</a></span>
+      <span>School address: <a href="Chalcedony School">Abijo, G.R.A, Ajah, Lagos State</a></span>
+      <span>Contact: 08098713445, 08033439837 </span>
+    </div>
+    <a href="admin.html" class="admin-link">Administrator access</a><small>© 2026 Chalcedony School. All rights reserved.</small><small>Built by <a href="https://ksocreative0.github.io/KSO-CREATIVE/">KSO CREATIVE</a></small>
+  </footer>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
