@@ -1,0 +1,82 @@
+(() => {
+  const $=s=>document.querySelector(s), client=window.galaSupabase;
+  const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const toast=m=>{const t=$("#toast");t.textContent=m;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),3500);};
+  let currentUser=null, staffCache=[], deptCache=[], categoryCache=[], rsvpCache=[];
+  if(!client){$("#loginError").textContent="Add your Supabase URL and anon key in js/config.js first.";return;}
+  const upload=async(bucket,file)=>{if(!file)return null;const path=`${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g,"-")}`;const {error}=await client.storage.from(bucket).upload(path,file,{upsert:false});if(error)throw error;return client.storage.from(bucket).getPublicUrl(path).data.publicUrl;};
+  async function adminCheck(){const {data:{user}}=await client.auth.getUser();if(!user)return false;const {data,error}=await client.from("profiles").select("role").eq("id",user.id).maybeSingle();if(error||!data)return false;currentUser=user;return true;}
+  async function showDashboard(){if(!(await adminCheck())){await client.auth.signOut();$("#loginError").textContent="This account does not have an authorised admin profile.";return;}$("#loginPanel").hidden=true;$("#dashboardPanel").hidden=false;await refreshAll();}
+  $("#loginForm").addEventListener("submit",async e=>{e.preventDefault();$("#loginError").textContent="";const {error}=await client.auth.signInWithPassword({email:$("#adminEmail").value,password:$("#adminPassword").value});if(error){$("#loginError").textContent=error.message;return;}await showDashboard();});
+  $("#logoutBtn").addEventListener("click",async()=>{await client.auth.signOut();location.reload();});
+  client.auth.getSession().then(({data})=>{if(data.session)showDashboard();});
+  $("#adminTabs").addEventListener("click",e=>{const b=e.target.closest("[data-tab]");if(!b)return;document.querySelectorAll(".admin-tabs button").forEach(x=>x.classList.toggle("active",x===b));document.querySelectorAll(".admin-panel").forEach(x=>x.hidden=x.id!==`tab-${b.dataset.tab}`);});
+  async function refreshAll(){await Promise.all([loadRsvps(),loadCategories(),loadStaff(),loadProgramme(),loadSettings(),loadStats(),loadResults(),loadVoteManagement()]);}
+  let sponsorshipCache=[];
+  async function loadRsvps(){
+    const [{data,error},{data:sponsors,sponsorshipError}]=await Promise.all([
+      client.from("rsvps").select("*").order("created_at",{ascending:false}),
+      client.from("rsvp_sponsorships").select("*,award_categories(title),rsvps(full_name,email)").order("created_at",{ascending:false})
+    ]);
+    if(error)return toast(error.message);
+    rsvpCache=data||[];sponsorshipCache=sponsors||[];
+    $("#rsvpCount").textContent=`${rsvpCache.length} responses`;
+    $("#rsvpRows").innerHTML=rsvpCache.map(r=>`<tr><td>${esc(r.full_name)}</td><td>${esc(r.email)}</td><td>${esc(r.attendance_decision)}</td><td>${r.is_sponsoring?"Yes":"No"}</td><td>${new Date(r.created_at).toLocaleString()}</td></tr>`).join("");
+    const allSponsors=sponsorshipCache.length?sponsorshipCache:rsvpCache.filter(r=>r.is_sponsoring).map(r=>({...r,award_categories:{title:r.sponsored_category?.title||""},rsvps:{full_name:r.full_name,email:r.email},delivery_date:r.sponsorship_delivery_date}));
+    $("#sponsorshipRows").innerHTML=allSponsors.map(s=>`<tr><td>${esc(s.rsvps?.full_name||"")}</td><td>${esc(s.rsvps?.email||"")}</td><td>${esc(s.award_categories?.title||"")}</td><td>${esc(s.sponsored_item||"")}</td><td>${esc(s.delivery_date||"")}</td></tr>`).join("")||'<tr><td colspan="5">No sponsorship commitments yet.</td></tr>';
+  }
+  $("#exportRsvps").addEventListener("click",()=>{const sponsorByRsvp=new Map();sponsorshipCache.forEach(s=>{const k=s.rsvp_id;if(!sponsorByRsvp.has(k))sponsorByRsvp.set(k,[]);sponsorByRsvp.get(k).push(s);});const rows=[["Name","Email","Decision","Sponsoring","Award category","Item","Delivery date","Submitted"],...rsvpCache.flatMap(r=>{const ss=sponsorByRsvp.get(r.id)||[];return ss.length?ss.map(s=>[r.full_name,r.email,r.attendance_decision,true,s.award_categories?.title,s.sponsored_item,s.delivery_date,r.created_at]):[[r.full_name,r.email,r.attendance_decision,r.is_sponsoring,false,"","","",r.created_at]];})];const csv=rows.map(r=>r.map(v=>`"${String(v??"").replace(/"/g,'""')}"`).join(",")).join("\n");const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download="chalcedony-gala-rsvps.csv";a.click();URL.revokeObjectURL(a.href);});
+  async function loadCategories(){const {data}=await client.from("award_categories").select("*").order("sort_order");categoryCache=data||[];$("#categoryList").innerHTML=categoryCache.map(c=>`<div class="admin-row"><div><strong>${esc(c.title)}</strong><small>${esc(c.description||"")}</small></div><button data-delete-category="${c.id}" class="text-button">Delete</button></div>`).join("");$("#nomineeForm [name=category_id]").innerHTML='<option value="">Choose category</option>'+categoryCache.map(c=>`<option value="${c.id}">${esc(c.title)}</option>`).join("");await loadNominees();}
+  $("#categoryForm").addEventListener("submit",async e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.currentTarget));const {error}=await client.from("award_categories").insert(f);if(error)return toast(error.message);e.currentTarget.reset();await loadCategories();toast("Award category added.");});
+  $("#categoryList").addEventListener("click",async e=>{const b=e.target.closest("[data-delete-category]");if(!b||!confirm("Delete this category and its nominees?"))return;const {error}=await client.from("award_categories").delete().eq("id",b.dataset.deleteCategory);if(error)return toast(error.message);await loadCategories();});
+  async function loadNominees(){const {data}=await client.from("award_nominees").select("id,category_id,staff(full_name),award_categories(title)").order("created_at");$("#nomineeList").innerHTML=(data||[]).map(n=>`<div class="admin-row"><div><strong>${esc(n.staff?.full_name)}</strong><small>${esc(n.award_categories?.title)}</small></div><button class="text-button" data-delete-nominee="${n.id}">Remove</button></div>`).join("");}
+  $("#nomineeForm").addEventListener("submit",async e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.currentTarget));const {error}=await client.from("award_nominees").insert(f);if(error)return toast(error.message);await loadNominees();toast("Nominee added.");});
+  $("#nomineeList").addEventListener("click",async e=>{const b=e.target.closest("[data-delete-nominee]");if(!b)return;const {error}=await client.from("award_nominees").delete().eq("id",b.dataset.deleteNominee);if(error)return toast(error.message);await loadNominees();});
+  async function loadStaff(){const [{data:deps},{data:staff}]=await Promise.all([client.from("departments").select("*").order("sort_order"),client.from("staff").select("*,departments(name)").order("created_at",{ascending:false})]);deptCache=deps||[];staffCache=staff||[];$("#staffForm [name=department_id]").innerHTML='<option value="">Choose department</option>'+deptCache.map(d=>`<option value="${d.id}">${esc(d.name)}</option>`).join("");$("#nomineeForm [name=staff_id]").innerHTML='<option value="">Choose staff member</option>'+staffCache.map(s=>`<option value="${s.id}">${esc(s.full_name)}</option>`).join("");$("#staffList").innerHTML=staffCache.map(s=>`<div class="admin-row"><div><strong>${esc(s.full_name)}</strong><small>${esc(s.designation)} · ${esc(s.departments?.name)}</small></div><button class="text-button" data-delete-staff="${s.id}">Remove</button></div>`).join("");}
+  $("#staffForm").addEventListener("submit",async e=>{e.preventDefault();const f=e.currentTarget;try{const image_url=await upload("staff-gallery",f.photo.files[0]);const {error}=await client.from("staff").insert({department_id:f.department_id.value,full_name:f.full_name.value,designation:f.designation.value,image_url});if(error)throw error;f.reset();await loadStaff();toast("Staff profile uploaded.");}catch(err){toast(err.message);}});
+  $("#staffList").addEventListener("click",async e=>{const b=e.target.closest("[data-delete-staff]");if(!b||!confirm("Remove this staff profile?"))return;const {error}=await client.from("staff").delete().eq("id",b.dataset.deleteStaff);if(error)return toast(error.message);await loadStaff();});
+  async function loadProgramme(){const {data}=await client.from("event_programme").select("*").order("sort_order");$("#programmeAdminList").innerHTML=(data||[]).map(p=>`<div class="admin-row"><div><strong>${esc(p.start_time?.slice(0,5))} ${esc(p.activity)}</strong><small>${esc(p.description)}</small></div><button class="text-button" data-delete-programme="${p.id}">Delete</button></div>`).join("");}
+  $("#programmeForm").addEventListener("submit",async e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.currentTarget));const {error}=await client.from("event_programme").insert(f);if(error)return toast(error.message);e.currentTarget.reset();await loadProgramme();});
+  $("#programmeAdminList").addEventListener("click",async e=>{const b=e.target.closest("[data-delete-programme]");if(!b)return;const {error}=await client.from("event_programme").delete().eq("id",b.dataset.deleteProgramme);if(error)return toast(error.message);await loadProgramme();});
+  async function loadSettings(){const {data}=await client.from("event_settings").select("*").eq("id",1).single();if(!data)return;const f=$("#settingsForm");["event_title","event_date","venue_name","venue_address","venue_map_url","event_description","head_name","head_role","head_message"].forEach(k=>{if(f[k])f[k].value=data[k]||"";});f.rsvp_closes_at.value=data.rsvp_closes_at?new Date(data.rsvp_closes_at).toISOString().slice(0,16):"";f.rsvp_open.checked=data.rsvp_open;f.voting_open.checked=data.voting_open;}
+  $("#settingsForm").addEventListener("submit",async e=>{e.preventDefault();const f=e.currentTarget;try{let head_image_url; if(f.head_photo.files[0])head_image_url=await upload("event-assets",f.head_photo.files[0]);const payload={event_title:f.event_title.value,event_date:f.event_date.value,venue_name:f.venue_name.value,venue_address:f.venue_address.value,venue_map_url:f.venue_map_url.value,event_description:f.event_description.value,head_name:f.head_name.value,head_role:f.head_role.value,head_message:f.head_message.value,rsvp_closes_at:f.rsvp_closes_at.value?new Date(f.rsvp_closes_at.value).toISOString():null,rsvp_open:f.rsvp_open.checked,voting_open:f.voting_open.checked};if(head_image_url)payload.head_image_url=head_image_url;const {error}=await client.from("event_settings").update(payload).eq("id",1);if(error)throw error;toast("Event settings saved.");}catch(err){toast(err.message);}});
+  async function loadStats(){const counts=await Promise.all(["rsvps","votes","award_categories","staff"].map(t=>client.from(t).select("*",{count:"exact",head:true})));["statRsvps","statVotes","statCategories","statStaff"].forEach((id,i)=>$("#"+id).textContent=counts[i].count??"—");}
+  async function loadResults(){
+    const [{data:votes,error:vErr},{data:categories},{data:nominees}] = await Promise.all([
+      client.from("votes").select("category_id,nominee_id").eq("is_hidden",false),
+      client.from("award_categories").select("id,title").order("sort_order"),
+      client.from("award_nominees").select("id,category_id,staff:staff!award_nominees_staff_id_fkey(full_name)")
+    ]);
+    if(vErr){$("#adminResults").innerHTML=`<p class="error-text">${esc(vErr.message)}</p>`;return;}
+    const catMap=new Map((categories||[]).map(c=>[c.id,c.title]));
+    const nomMap=new Map((nominees||[]).map(n=>[n.id,{category_id:n.category_id,name:n.staff?.full_name||"Nominee"}]));
+    const totals={};
+    (categories||[]).forEach(c=>totals[c.id]={title:c.title,rows:{}});
+    (votes||[]).forEach(v=>{const n=nomMap.get(v.nominee_id);if(!n)return;const bucket=totals[v.category_id]||(totals[v.category_id]={title:catMap.get(v.category_id)||"Category",rows:{}});bucket.rows[n.name]=(bucket.rows[n.name]||0)+1;});
+    $("#adminResults").innerHTML=Object.values(totals).map(group=>{const rows=Object.entries(group.rows).sort((a,b)=>b[1]-a[1]);const high=rows.length?rows[0][1]:0;return `<div class="result-category"><h4>${esc(group.title)}</h4>${rows.length?rows.map(([name,n])=>`<p>${esc(name)} <strong>${n} votes</strong> ${n===high?'<span class="winner-label">CURRENT LEAD</span>':''}</p>`).join(""):"<p class='muted'>No votes yet in this category.</p>"}</div>`;}).join("")||"<p class='muted'>No award categories have been added.</p>";const {data:settings}=await client.from("event_settings").select("results_published,voting_open").eq("id",1).single();$("#publishStatus").textContent=settings?.results_published?"Results are currently public.":"Results are currently hidden.";$("#publishResultsBtn").disabled=!!settings?.results_published;$("#hideResultsBtn").disabled=!settings?.results_published;$("#votingStatus").textContent=settings?.voting_open?"Voting is OPEN.":"Voting has ENDED. Results remain separate.";$("#endVotingBtn").disabled=!settings?.voting_open;$("#endVotingBtn").textContent=settings?.voting_open?"END VOTING":"VOTING ENDED";const votingInput=$("#settingsForm")?.elements.namedItem("voting_open");if(votingInput)votingInput.checked=!!settings?.voting_open;}
+  async function loadVoteManagement(){
+    const [{data,error},{data:cats}] = await Promise.all([
+      client.from("votes").select("id,created_at,is_hidden,category_id,award_nominees!votes_nominee_category_fk(staff(full_name))").order("created_at",{ascending:false}),
+      client.from("award_categories").select("id,title")
+    ]);
+    if(error){$("#voteRows").innerHTML=`<tr><td colspan="5">${esc(error.message)}</td></tr>`;return;}
+    const titles=new Map((cats||[]).map(c=>[c.id,c.title]));
+    $("#voteRows").innerHTML=(data||[]).map(v=>`<tr><td>${esc(titles.get(v.category_id)||"")}</td><td>${esc(v.award_nominees?.staff?.full_name||"")}</td><td>${new Date(v.created_at).toLocaleString()}</td><td>${v.is_hidden?"Hidden":"Counted"}</td><td><button class="text-button" data-toggle-vote="${v.id}" data-hidden="${v.is_hidden}">${v.is_hidden?"Unhide":"Hide"}</button> <button class="text-button danger-text" data-cancel-vote="${v.id}">Cancel vote</button></td></tr>`).join("")||'<tr><td colspan="5">No votes have been submitted.</td></tr>';
+  }
+  $("#voteRows").addEventListener("click",async e=>{
+    const toggle=e.target.closest("[data-toggle-vote]");
+    if(toggle){const hidden=toggle.dataset.hidden!=="true";const {error}=await client.from("votes").update({is_hidden:hidden}).eq("id",toggle.dataset.toggleVote);if(error)return toast(error.message);await Promise.all([loadVoteManagement(),loadResults(),loadStats()]);toast(hidden?"Vote hidden and excluded from totals.":"Vote restored to totals.");return;}
+    const cancel=e.target.closest("[data-cancel-vote]");
+    if(cancel&&confirm("Permanently cancel and delete this vote? This cannot be undone.")){const {error}=await client.from("votes").delete().eq("id",cancel.dataset.cancelVote);if(error)return toast(error.message);await Promise.all([loadVoteManagement(),loadResults(),loadStats()]);toast("Vote cancelled.");}
+  });
+  $("#endVotingBtn").addEventListener("click",async()=>{
+    if(!confirm("End voting now? New votes will be blocked. Results will NOT be published."))return;
+    const {error}=await client.from("event_settings").update({voting_open:false}).eq("id",1);
+    if(error)return toast(error.message);
+    const votingInput=$("#settingsForm")?.elements.namedItem("voting_open");if(votingInput)votingInput.checked=false;
+    await Promise.all([loadResults(),loadVoteManagement()]);
+    toast("Voting has ended. Results remain unpublished.");
+  });
+  async function publish(value){const {error}=await client.from("event_settings").update({results_published:value,results_published_at:value?new Date().toISOString():null}).eq("id",1);if(error)return toast(error.message);await loadResults();toast(value?"Results are now published.":"Public results have been hidden.");}
+  $("#publishResultsBtn").addEventListener("click",()=>{if(confirm("Publish award results to the public website now?"))publish(true);});$("#hideResultsBtn").addEventListener("click",()=>publish(false));
+})();
